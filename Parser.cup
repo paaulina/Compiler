@@ -1,0 +1,86 @@
+import java_cup.runtime.*;
+import java.io.Reader;
+import java.util.stream.*;
+
+parser code {:
+    private CodeGenerator codeGen;
+
+    public parser(Lexer lexer, CodeGenerator codeGen) {
+        setScanner(lexer);
+        this.codeGen = codeGen;
+    }
+
+    @Override
+    public void syntax_error(Symbol currentToken) {
+        codeGen.error("Błąd składniowy");
+    }
+:}
+
+/* Terminals (tokens returned by the scanner). */
+terminal Long   num;
+terminal String pidentifier;
+terminal        LEFT, RIGHT, PLUS, MINUS, TIMES, DIVIDE, MODULO;
+terminal        EQ, NEQ, LT, GT, LE, GE;
+terminal        DECLARE, IN, END, COLON, SEMI, ASSIGN;
+terminal        IF, THEN, ELSE, ENDIF;
+terminal        WHILE, DO, ENDWHILE, ENDDO;
+terminal        FOR, FROM, TO, DOWNTO, ENDFOR, READ, WRITE;
+
+/* Non terminals */
+non terminal                 program, declarations;
+non terminal Stream<Command> commands, command, expression, identifier, condition, value;
+non terminal                 regb, regc, regd, mutable, immutable;
+non terminal Label           newlabel;
+
+program      ::= DECLARE declarations IN commands:c END {: codeGen.program(c); :}
+             ;
+declarations ::= declarations pidentifier:id SEMI {: codeGen.newScalar(id, false); :}
+             | declarations pidentifier:id LEFT num:from COLON num:to RIGHT SEMI {: codeGen.newArray(id, from, to); :}
+             | 
+             ;
+commands     ::= commands:c1 command:c2 {: RESULT = CodeGenerator.concat(c1, c2); :}
+             | command:c {: RESULT = c; :}
+             ;
+command      ::= regc mutable identifier:id immutable ASSIGN expression:expr SEMI {: RESULT = codeGen.assign(id, expr); :}
+             | IF newlabel:fail condition:cond THEN commands:ifTrue ELSE commands:ifFalse ENDIF {: RESULT = codeGen.ifThenElse(cond, ifTrue, ifFalse, fail); :}
+             | IF newlabel:end condition:cond THEN commands:ifTrue ENDIF {: RESULT = codeGen.ifThen(cond, ifTrue, end); :}
+             | WHILE newlabel:end condition:cond DO commands:body ENDWHILE {: RESULT = codeGen.whileLoop(cond, body, end); :}
+             | DO commands:body WHILE newlabel:end condition:cond ENDDO {: RESULT = codeGen.doLoop(body, cond, end); :}
+             | FOR pidentifier:it FROM regb value:from TO regc value:to DO {: codeGen.newScalar(it, true); :} commands:body ENDFOR {: RESULT = codeGen.forLoop(it, from, to, body, false); :}
+             | FOR pidentifier:it FROM regb value:from DOWNTO regc value:to DO {: codeGen.newScalar(it, true); :} commands:body ENDFOR {: RESULT = codeGen.forLoop(it, from, to, body, true); :}
+             | READ mutable regb identifier:id immutable SEMI {: RESULT = codeGen.read(id); :}
+             | WRITE regb value:val SEMI {: RESULT = codeGen.write(val); :}
+             ;
+expression   ::= regb value:vl {: RESULT = vl; :}
+             | regb value:v1 PLUS regc value:v2 regb {: RESULT = codeGen.plus(v1, v2); :}
+             | regb value:v1 MINUS regc value:v2 regb {: RESULT = codeGen.minus(v1, v2); :}
+             | regb value:v1 TIMES regc value:v2 regd {: RESULT = codeGen.times(v1, v2);:}
+             | regb value:v1 DIVIDE regc value:v2 regd {: RESULT = codeGen.divide(v1, v2); :}
+             | regb value:v1 MODULO regc value:v2 regb {: RESULT = codeGen.modulo(v1, v2); :}
+             ;
+condition    ::= regb value:v1 EQ regc value:v2 {: RESULT = codeGen.equal(v1, v2); :}
+             | regb value:v1 NEQ regc value:v2 {: RESULT = codeGen.nequal(v1, v2); :}
+             | regb value:v1 LT regc value:v2 {: RESULT = codeGen.lt(v1, v2); :}
+             | regb value:v1 GT regc value:v2 {: RESULT = codeGen.gt(v1, v2); :}
+             | regb value:v1 LE regc value:v2 {: RESULT = codeGen.le(v1, v2); :}
+             | regb value:v1 GE regc value:v2 {: RESULT = codeGen.ge(v1, v2); :}
+             ;
+regb         ::= {: codeGen.reg = 'B'; :}
+             ;
+regc         ::= {: codeGen.reg = 'C'; :}
+             ;
+regd         ::= {: codeGen.reg = 'D'; :}
+             ;
+mutable      ::= {: codeGen.mutable = true; :}
+             ;
+immutable    ::= {: codeGen.mutable = false; :}
+             ;
+newlabel     ::= {: RESULT = codeGen.jump = new Label(); :}
+             ;
+value        ::= num:n {: RESULT = codeGen.number(n); :}
+             | identifier:id {: RESULT = codeGen.load(id); :}
+             ;
+identifier   ::= pidentifier:var {: RESULT = codeGen.scalar(var); :}
+             | pidentifier:tab LEFT pidentifier:var RIGHT {: RESULT = codeGen.arrayVar(tab, var); :}
+             | pidentifier:tab LEFT num:index RIGHT {: RESULT = codeGen.arrayNum(tab, index); :}
+             ;

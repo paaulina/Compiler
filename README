@@ -1,0 +1,29 @@
+Kompilator
+
+Paulina Jędrzejewska
+nr indeksu: 236821 
+
+Projekt został napisany w języku programowania Java.
+Lekser został zrealizowany przy pomocy technologii jFlex 1.7, parser przy pomocy CUP.
+
+Uruchamianie:
+
+	Należy mieć zainstalowaną Jave.
+	Aby zbudować projekt należy użyć w folderze polecenia 'make'.
+	Program wywołuje się poleceniem './kompilator <nazwa pliku wejściowego> <nazwa pliku wyjściowego>'.
+	np. ./kompilator source.imp target.mr
+	
+	
+Projekt zawiera pliki:
+
+	- Lexer: Lexer.flex, Lexer.java
+	- Parser: Parser.cup, Parser.java
+	- CodeGenerator.java : główna klasa generująca 
+	- AboutSymbol.java: klasa przechowująca informacje o zmiennej
+	- CommandType.java: klasa odpowiadająca zaidentyfikację rodzaju komendy
+	- CompilationError.java
+	- Label.java 
+	- sym.java - reprezentacja symboli 
+	- Main.java
+	- jFlex
+	- java Cup 
